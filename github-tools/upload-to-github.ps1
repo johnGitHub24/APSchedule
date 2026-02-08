@@ -2,11 +2,14 @@
 # Universal script for uploading any project to GitHub
 # 
 # Usage:
-#   1. Copy this script to your project directory, then run:
-#      .\upload-to-github.ps1
+#   1. From github-tools directory (Recommended):
+#      cd "D:\MCP\APSchedule\github-tools"
+#      .\upload-to-github.ps1 -ProjectPath "D:\MCP\ProjectName" -RepoName "ProjectName"
 #   
-#   2. Or run from APSchedule directory for any project:
-#      .\upload-to-github.ps1 -ProjectPath "D:\MCP\ProjectName" -RepoName "ProjectName" -Description "Description"
+#   2. Copy to project directory:
+#      Copy-Item "D:\MCP\APSchedule\github-tools\upload-to-github.ps1" -Destination "D:\MCP\ProjectName\"
+#      cd "D:\MCP\ProjectName"
+#      .\upload-to-github.ps1
 #
 # Author: johnGitHub24
 # Version: 1.0 (Final)
