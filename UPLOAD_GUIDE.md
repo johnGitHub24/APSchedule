@@ -1,4 +1,6 @@
-# GitHub 上傳快速指南
+# GitHub 上傳快速指南（最終公版）
+
+> **這是經過測試和優化的最終版本，可在所有專案中使用，無編碼問題。**
 
 ## 使用方式
 
@@ -29,6 +31,22 @@ cd "D:\MCP\APSchedule"
 - ✅ 自動添加文件並創建提交
 - ✅ 自動設置遠程倉庫
 - ✅ 推送到 GitHub
+- ✅ 無編碼問題（使用英文輸出，避免 PowerShell 編碼問題）
+- ✅ 增強錯誤處理，更穩定可靠
+
+## 複製腳本到其他專案
+
+**方式一：手動複製**
+```powershell
+Copy-Item "D:\MCP\APSchedule\upload-to-github.ps1" -Destination "D:\MCP\您的專案\upload-to-github.ps1"
+```
+
+**方式二：直接使用（推薦）**
+不需要複製，直接從 APSchedule 目錄執行即可：
+```powershell
+cd "D:\MCP\APSchedule"
+.\upload-to-github.ps1 -ProjectPath "D:\MCP\您的專案" -RepoName "專案名稱"
+```
 
 ## 注意事項
 
