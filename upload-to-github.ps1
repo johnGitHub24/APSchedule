@@ -17,7 +17,10 @@ param(
     [string]$Description = "",
     
     [Parameter(Mandatory=$false)]
-    [switch]$Force = $false
+    [switch]$Force = $false,
+    
+    [Parameter(Mandatory=$false)]
+    [switch]$SkipSecurityCheck = $false
 )
 
 # 設置錯誤處理
@@ -113,6 +116,14 @@ ENV/
 .coverage
 htmlcov/
 
+# Security - 敏感資訊
+.env
+*.key
+*.pem
+secrets.json
+credentials.json
+config.local.json
+
 # OS
 .DS_Store
 Thumbs.db
@@ -120,6 +131,40 @@ Thumbs.db
         Write-Success ".gitignore 文件已創建"
     } else {
         Write-Success ".gitignore 文件存在"
+    }
+    
+    # 步驟 2.5: 安全檢查（重要！）
+    if (-not $SkipSecurityCheck) {
+        Write-Info ""
+        Write-Info "步驟 2.5: 🔒 執行安全檢查..."
+        $securityScript = Join-Path $ProjectPath "check-security.ps1"
+        
+        # 如果安全檢查腳本在同目錄，使用它
+        if (Test-Path $securityScript) {
+            Write-Info "執行安全檢查腳本..."
+            & $securityScript -ProjectPath $ProjectPath -Strict
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "安全檢查失敗！發現敏感資訊。"
+                Write-Warning "請先移除敏感資訊後再上傳，或使用 -SkipSecurityCheck 參數跳過檢查（不建議）"
+                Write-Info ""
+                Write-Info "處理方式："
+                Write-Info "1. 檢查並移除所有 API Key、密碼等敏感資訊"
+                Write-Info "2. 將敏感資訊移到環境變數或配置文件"
+                Write-Info "3. 確保配置文件在 .gitignore 中"
+                Write-Info "4. 重新執行安全檢查確認"
+                exit 1
+            }
+            Write-Success "安全檢查通過"
+        } else {
+            Write-Warning "未找到 check-security.ps1，跳過自動安全檢查"
+            Write-Warning "建議手動檢查專案中是否包含敏感資訊（API Key、密碼等）"
+            Write-Info "按 Enter 繼續，或按 Ctrl+C 取消..."
+            Read-Host
+        }
+        Write-Info ""
+    } else {
+        Write-Warning "⚠️  已跳過安全檢查（不建議）"
+        Write-Info ""
     }
     
     # 步驟 3: 檢查是否有未提交的更改

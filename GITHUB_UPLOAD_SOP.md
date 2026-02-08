@@ -17,15 +17,28 @@
 2. 已配置 GitHub 帳號（johnGitHub24）
 3. 專案目錄路徑：`D:\MCP\[專案名稱]`
 
+### ⚠️ 重要提醒：安全檢查
+**在上傳前，務必確認專案中沒有包含：**
+- API Keys
+- 密碼
+- Access Tokens
+- 私鑰文件
+- 資料庫連接字串（含密碼）
+- 其他敏感資訊
+
+**自動化腳本會自動執行安全檢查，發現問題會阻止上傳。**
+
 ### 最快速方式
-使用自動化腳本，只需執行一個命令即可完成所有步驟。
+使用自動化腳本，只需執行一個命令即可完成所有步驟（包含安全檢查）。
 
 ---
 
 ## 方法一：使用自動化腳本（推薦）
 
 ### 步驟 1：準備腳本
-將 `upload-to-github.ps1` 腳本複製到您的專案目錄，或放在 `D:\MCP\` 目錄下。
+將以下腳本複製到您的專案目錄：
+- `upload-to-github.ps1` - 上傳腳本
+- `check-security.ps1` - 安全檢查腳本（重要！）
 
 ### 步驟 2：執行腳本
 在 PowerShell 中執行：
@@ -43,12 +56,21 @@ D:\MCP\upload-to-github.ps1 -ProjectPath "D:\MCP\APSchedule" -RepoName "APSchedu
 
 ### 步驟 3：確認
 腳本會自動完成：
+- ✅ **執行安全檢查**（檢測 API Key、密碼等敏感資訊）🔒
 - ✅ 檢查是否為 Git 倉庫
 - ✅ 初始化 Git（如需要）
+- ✅ 檢查並創建 .gitignore
 - ✅ 添加所有文件
 - ✅ 創建提交（使用正確的中文編碼）
 - ✅ 添加遠程倉庫
 - ✅ 推送到 GitHub
+
+**重要：** 如果安全檢查發現敏感資訊，腳本會**停止執行**，要求您先處理敏感資訊後再上傳。
+
+**跳過安全檢查（不建議）：**
+```powershell
+.\upload-to-github.ps1 -SkipSecurityCheck
+```
 
 ---
 
@@ -252,16 +274,146 @@ git commit -m "Update .gitignore and remove tracked files"
 git push
 ```
 
+### 問題 6：已提交敏感資訊（API Key、密碼等）⚠️ 嚴重
+
+**這是最嚴重的安全問題！如果已經推送到 GitHub，需要立即處理：**
+
+#### 步驟 1：立即更改所有暴露的密鑰
+- 登入相關服務（AWS、GitHub、資料庫等）
+- **立即撤銷或更改所有暴露的 API Key、Token、密碼**
+- 這比清理 Git 歷史更重要！
+
+#### 步驟 2：從 Git 歷史中移除敏感資訊
+
+**方法 A：使用 git filter-branch（Git 內建）**
+```powershell
+# 移除包含敏感資訊的文件
+git filter-branch --force --index-filter `
+    "git rm --cached --ignore-unmatch path/to/sensitive-file" `
+    --prune-empty --tag-name-filter cat -- --all
+
+# 強制推送（會重寫歷史，需要協調團隊）
+git push origin --force --all
+git push origin --force --tags
+```
+
+**方法 B：使用 BFG Repo-Cleaner（推薦，更快）**
+```powershell
+# 1. 下載 BFG: https://rtyley.github.io/bfg-repo-cleaner/
+# 2. 創建敏感資訊列表文件 passwords.txt
+# 3. 執行清理
+java -jar bfg.jar --replace-text passwords.txt
+
+# 4. 清理並推送
+git reflog expire --expire=now --all
+git gc --prune=now --aggressive
+git push --force
+```
+
+**方法 C：如果只是最後一次提交（最簡單）**
+```powershell
+# 1. 從暫存區移除敏感文件
+git rm --cached path/to/sensitive-file
+
+# 2. 添加到 .gitignore
+echo "path/to/sensitive-file" >> .gitignore
+
+# 3. 修改最後一次提交
+git commit --amend
+
+# 4. 強制推送（如果已經推送過）
+git push -f origin main
+```
+
+#### 步驟 3：預防措施
+```powershell
+# 創建 .env.example 範例文件（不包含真實值）
+# 將真實的 .env 添加到 .gitignore
+echo ".env" >> .gitignore
+echo "*.key" >> .gitignore
+echo "secrets.json" >> .gitignore
+```
+
+**重要提醒：**
+- ⚠️ 一旦敏感資訊推送到 GitHub，即使刪除，Git 歷史中仍然存在
+- ⚠️ 必須使用上述方法清理歷史，或考慮刪除倉庫重新創建
+- ⚠️ 更改所有暴露的密鑰是最優先事項
+
+---
+
+## 🔒 安全檢查（必做！）
+
+### 使用自動化安全檢查腳本
+
+**在上傳前，務必執行安全檢查：**
+
+```powershell
+cd "D:\MCP\[您的專案名稱]"
+.\check-security.ps1
+```
+
+或使用嚴格模式（發現問題會阻止上傳）：
+```powershell
+.\check-security.ps1 -Strict
+```
+
+### 手動檢查要點
+
+1. **檢查常見敏感資訊位置：**
+   - `.env` 文件
+   - `config.json`、`settings.json`
+   - `credentials.json`、`secrets.json`
+   - 任何包含 `key`、`password`、`token` 的文件
+
+2. **檢查程式碼中的硬編碼：**
+   ```python
+   # ❌ 錯誤示範
+   API_KEY = "sk-1234567890abcdef"
+   password = "mypassword123"
+   
+   # ✅ 正確做法
+   import os
+   API_KEY = os.getenv("API_KEY")
+   password = os.getenv("PASSWORD")
+   ```
+
+3. **確認 .gitignore 包含：**
+   ```
+   .env
+   *.key
+   *.pem
+   secrets.json
+   credentials.json
+   config.local.json
+   ```
+
+### 如果發現敏感資訊
+
+**在推送前：**
+1. 移除敏感資訊
+2. 使用環境變數或配置文件（並加入 .gitignore）
+3. 重新執行安全檢查確認
+
+**如果已經推送：**
+1. **立即更改所有暴露的密鑰**（最優先！）
+2. 參考 [問題 6](#問題-6已提交敏感資訊api-key密碼等-嚴重) 清理 Git 歷史
+
 ---
 
 ## 檢查清單
 
 在上傳前，請確認：
 
+### 🔒 安全檢查（最重要！）
+- [ ] **已執行安全檢查腳本** `check-security.ps1`
+- [ ] **未發現 API Key、密碼等敏感資訊**
+- [ ] 已將敏感資訊移到環境變數或配置文件
+- [ ] 配置文件已添加到 .gitignore
+- [ ] 已檢查所有 `.env`、`config.json` 等文件
+
 ### 專案準備
 - [ ] 專案有 README.md 文件
 - [ ] 有適當的 .gitignore 文件
-- [ ] 已移除敏感資訊（API keys、密碼等）
 - [ ] 已移除大型二進制文件（如需要，使用 Git LFS）
 - [ ] 已移除虛擬環境目錄（.venv, venv）
 - [ ] 已移除 IDE 配置目錄（.idea, .vscode）
