@@ -1,6 +1,15 @@
-# GitHub Upload Script (Simplified)
-# Usage: .\upload-to-github.ps1 -RepoName "ProjectName"
-# Or: .\upload-to-github.ps1 -ProjectPath "D:\MCP\ProjectName" -RepoName "ProjectName"
+# GitHub Upload Script (Final Version)
+# Universal script for uploading any project to GitHub
+# 
+# Usage:
+#   1. Copy this script to your project directory, then run:
+#      .\upload-to-github.ps1
+#   
+#   2. Or run from APSchedule directory for any project:
+#      .\upload-to-github.ps1 -ProjectPath "D:\MCP\ProjectName" -RepoName "ProjectName" -Description "Description"
+#
+# Author: johnGitHub24
+# Version: 1.0 (Final)
 
 param(
     [string]$ProjectPath = $PSScriptRoot,
@@ -66,27 +75,38 @@ Thumbs.db
     Write-Info "Checking for sensitive files..."
     $sensitivePatterns = @(".env", "*.key", "*.pem", "secrets.json", "credentials.json")
     $foundSensitive = $false
+    $sensitiveFilesList = @()
     
     foreach ($pattern in $sensitivePatterns) {
-        $files = Get-ChildItem -Path $ProjectPath -Filter $pattern -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { 
-                $_.FullName -notlike "*\.git\*" -and 
-                $_.FullName -notlike "*\.venv\*" -and 
-                $_.FullName -notlike "*\venv\*" 
+        try {
+            $files = Get-ChildItem -Path $ProjectPath -Filter $pattern -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { 
+                    $fullPath = $_.FullName
+                    $fullPath -notlike "*\.git\*" -and 
+                    $fullPath -notlike "*\.venv\*" -and 
+                    $fullPath -notlike "*\venv\*" -and
+                    $fullPath -notlike "*\node_modules\*" -and
+                    $fullPath -notlike "*\__pycache__\*"
+                }
+            
+            if ($files) {
+                foreach ($file in $files) {
+                    $relativePath = $file.FullName.Replace($ProjectPath, "").TrimStart('\')
+                    $sensitiveFilesList += $relativePath
+                }
+                $foundSensitive = $true
             }
-        
-        if ($files) {
-            Write-Warning "Found potentially sensitive files:"
-            foreach ($file in $files) {
-                $relativePath = $file.FullName.Replace($ProjectPath, "").TrimStart('\')
-                Write-Warning "  - $relativePath"
-            }
-            $foundSensitive = $true
+        } catch {
+            # 忽略檢查錯誤，繼續執行
         }
     }
     
     if ($foundSensitive) {
-        Write-Error "Found sensitive files! Please handle them before uploading."
+        Write-Warning "Found potentially sensitive files:"
+        foreach ($file in $sensitiveFilesList) {
+            Write-Warning "  - $file"
+        }
+        Write-Error "Please handle sensitive files before uploading."
         Write-Info "Suggestion: Add these files to .gitignore or remove them"
         Write-Info "Press Enter to continue (not recommended), or Ctrl+C to cancel..."
         Read-Host | Out-Null
@@ -99,8 +119,17 @@ Thumbs.db
     git add . | Out-Null
     Write-Success "Files added"
     
-    # 5. Create commit
-    $hasCommits = git log -1 --oneline 2>$null
+    # 5. Create commit (only if no commits exist)
+    $hasCommits = $false
+    try {
+        $commitCheck = git log -1 --oneline 2>$null
+        if ($LASTEXITCODE -eq 0 -and $commitCheck) {
+            $hasCommits = $true
+        }
+    } catch {
+        $hasCommits = $false
+    }
+    
     if (-not $hasCommits) {
         Write-Info "Creating initial commit..."
         if ($Description) {
@@ -108,10 +137,13 @@ Thumbs.db
         } else {
             $msg = "Initial commit: $RepoName"
         }
-        $msg | Out-File -FilePath "commit_msg.txt" -Encoding UTF8 -NoNewline
-        git commit -F commit_msg.txt | Out-Null
-        Remove-Item commit_msg.txt -ErrorAction SilentlyContinue
+        $commitMsgFile = Join-Path $ProjectPath "commit_msg.txt"
+        $msg | Out-File -FilePath $commitMsgFile -Encoding UTF8 -NoNewline
+        git commit -F $commitMsgFile 2>&1 | Out-Null
+        Remove-Item $commitMsgFile -ErrorAction SilentlyContinue
         Write-Success "Commit created"
+    } else {
+        Write-Info "Repository already has commits, skipping initial commit"
     }
     
     # 6. Set main branch
