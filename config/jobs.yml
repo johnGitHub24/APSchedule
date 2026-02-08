@@ -1,0 +1,73 @@
+# APSchedule 任務配置檔案
+
+# 排程器設定
+scheduler:
+  type: blocking  # blocking 或 background
+  timezone: Asia/Taipei
+
+# 任務列表
+jobs:
+  # 任務1: 每5秒執行一次
+  - id: job_interval_5s
+    name: 每5秒執行的任務
+    func: daily_report
+    trigger:
+      type: interval
+      params:
+        seconds: 5
+    enabled: true
+
+  # 任務2: 每10秒執行一次，帶參數
+  - id: job_with_params
+    name: 帶參數的任務
+    func: task_with_params
+    trigger:
+      type: interval
+      params:
+        seconds: 10
+    args: []
+    kwargs:
+      name: "測試任務"
+      count: 42
+    enabled: true
+
+  # 任務3: 每分鐘的第30秒執行
+  - id: job_cron_second
+    name: Cron任務(每分鐘第30秒)
+    func: hourly_check
+    trigger:
+      type: cron
+      params:
+        second: 30
+    enabled: true
+
+  # 任務4: 每週一早上9點執行
+  - id: job_weekly_backup
+    name: 每週備份任務
+    func: weekly_backup
+    trigger:
+      type: cron
+      params:
+        day_of_week: mon
+        hour: 9
+        minute: 0
+        second: 0
+    enabled: false  # 此任務已停用
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
